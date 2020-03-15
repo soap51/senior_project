@@ -75,7 +75,7 @@ class Smallnet(Model):
         self.flatten =  Flatten()
         self.dense_1 = Dense(128) 
         self.dense_2 = Dense(128)    
-        self.dense_3 = Dense(1)
+        self.dense_3 = Dense(1 )
 
     def extract(self , slices):        
         slices = self.conv1(slices)        
