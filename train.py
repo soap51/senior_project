@@ -1,5 +1,5 @@
-from model import Smallnet
-model_name = "smallnet_1_output_1_axis"
+from model import Alexnet
+model_name = "Alexnet_1_output_3_axis"
 import matplotlib.pyplot as plt
 import tensorflow as tf
 
@@ -12,21 +12,21 @@ import time
 
 from tensorflow.python.client import device_lib
 print(device_lib.list_local_devices())
-
-
-TRAIN_IMAGE_DIR = "D:\\Dataset\\MRNet-v1.0\\train\\"
-VALID_IMAGE_DIR = "D:\\Dataset\\MRNet-v1.0\\valid\\"
-TRAIN_SIZE = 1130
+print("Num GPUs Available: ",len(tf.config.experimental.list_physical_devices("GPU")))
+retrain_epoch  = 0
+TRAIN_IMAGE_DIR = "./train/"
+VALID_IMAGE_DIR = "./valid/"
+TRAIN_SIZE = 10
 VALID_SIZE = 120
 IMG_WIDTH = 256
 IMG_HEIGHT = 256
-EPOCHS = 20
-ROUND = "1"
-DISEASE = "acl"
+EPOCHS = 60
+ROUND = "9999"
+DISEASE ="acl" # meniscus  abnormal is work properly
 model_name = model_name + "_"+ DISEASE +"_" +ROUND + "_" + str(EPOCHS)
 
-label_train = pd.read_csv("D:\\Dataset\\MRNet-v1.0\\train-"+DISEASE+".csv" , header=None).loc[0: ,1:]  
-label_valid = pd.read_csv("D:\\Dataset\\MRNet-v1.0\\valid-"+DISEASE+".csv" , header=None).loc[0: ,1:]
+label_train = pd.read_csv("./train-"+DISEASE+".csv" , header=None).loc[0: ,1:]  
+label_valid = pd.read_csv("./valid-"+DISEASE+".csv" , header=None).loc[0: ,1:]
 label_train_df = pd.DataFrame(columns=["X","y"])
 label_valid_df = pd.DataFrame(columns=["X","y"])
 train_dataset = None
@@ -39,14 +39,14 @@ for index in range(VALID_SIZE):
 
 
 
-
+# current_time = "20200331-080438"
 current_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-TRAIN_LOG_DIR = 'D:\\SeniorProject\\Logs\\gradient_tape\\'+ model_name+ '\\' + current_time + '\\train'
-VALID_LOG_DIR = 'D:\\SeniorProject\\Logs\\gradient_tape\\'+ model_name+ '\\' + current_time + '\\test'
+TRAIN_LOG_DIR = './Logs/gradient_tape/'+ model_name+ '/' + current_time + '/train'
+VALID_LOG_DIR = './Logs/gradient_tape/'+ model_name+ '/' + current_time + '/test'
 train_summary_writer = tf.summary.create_file_writer(TRAIN_LOG_DIR)
 test_summary_writer = tf.summary.create_file_writer(VALID_LOG_DIR)
 
-model = Smallnet()
+model = Alexnet()
 
 optimizer = tf.keras.optimizers.SGD(learning_rate=0.001)
 loss_object = tf.keras.losses.BinaryCrossentropy(from_logits=True)
@@ -67,7 +67,7 @@ valid_loss = tf.keras.metrics.Mean(name='test_loss')
 valid_accuracy = tf.keras.metrics.Accuracy(name='valid_accuracy')
 
 ckpt = tf.train.Checkpoint(step=tf.Variable(1), optimizer=optimizer, net=model)
-manager = tf.train.CheckpointManager(ckpt, 'D:\\SeniorProject\\training\\checkpoints\\'+ model_name+ '\\tf_ckpts', max_to_keep=10)
+manager = tf.train.CheckpointManager(ckpt, './Checkpoints/'+ model_name+ '/tf_ckpts', max_to_keep=10)
 
 ckpt.restore(manager.latest_checkpoint)
 if manager.latest_checkpoint:
@@ -76,23 +76,26 @@ else:
     print("Initializing from scratch.")
 
 for epoch in range(EPOCHS):
+    epoch = epoch + retrain_epoch
     start = time.time()
     label_train_df = label_train_df.sample(frac=1).reset_index(drop=True)      
     for index in range(TRAIN_SIZE):        
-        axial = np.load(TRAIN_IMAGE_DIR + "axial" + "\\"+str(label_train_df.iloc[index][0]).zfill(4)+".npy") 
-        # coronal = np.load(TRAIN_IMAGE_DIR + "coronal" + "\\"+str(label_train_df.iloc[index][0]).zfill(4)+".npy")  
-        # sagittal = np.load(TRAIN_IMAGE_DIR + "sagittal" + "\\"+str(label_train_df.iloc[index][0]).zfill(4)+".npy") 
+        axial = np.load(TRAIN_IMAGE_DIR + "axial" + "/"+str(label_train_df.iloc[index][0]).zfill(4)+".npy") 
+        axial = np.stack((axial,)*3 , axis=1)
+        coronal = np.load(TRAIN_IMAGE_DIR + "coronal" + "/"+str(label_train_df.iloc[index][0]).zfill(4)+".npy")  
+        coronal = np.stack((coronal,)*3 , axis=1)
+        sagittal = np.load(TRAIN_IMAGE_DIR + "sagittal" + "/"+str(label_train_df.iloc[index][0]).zfill(4)+".npy") 
+        sagittal = np.stack((sagittal,)*3 , axis=1)
         label = tf.convert_to_tensor(np.asarray(label_train_df.iloc[index][1]).astype('float32').reshape(1,1), dtype=tf.float32)
-        # x = [axial , coronal , sagittal]
-        x = [axial]
+        x = [axial , coronal , sagittal]
+     
         with tf.GradientTape() as tape:
             predictions = model(x, training=True)
-            loss = loss_object(label , predictions)
-            predictions = tf.math.sigmoid(predictions)
-            predictions = tf.math.round(predictions)                 
-            print(label , predictions)
-            
+            print(predictions.shape)
+            loss = loss_object(label , predictions)                                  
             print(loss)
+            predictions = tf.math.sigmoid(predictions)            
+            predictions = tf.math.round(predictions)
             train_true_negative.update_state(label,predictions)
             train_false_positive.update_state(label,predictions)
             train_false_negative.update_state(label,predictions)
@@ -107,7 +110,7 @@ for epoch in range(EPOCHS):
             print("False Negative : " , train_false_negative.result().numpy())  
             # print(model.trainable_variables)
         gradients = tape.gradient(loss, model.trainable_variables)
-        print(gradients)
+       # print(gradients)
         optimizer.apply_gradients(zip(gradients, model.trainable_variables))           
         train_loss(loss)
         train_accuracy(label, predictions)
@@ -119,7 +122,7 @@ for epoch in range(EPOCHS):
                             )
         )
         ckpt.step.assign_add(1)
-        if int(ckpt.step) % 100 == 0 :
+        if int(ckpt.step) % 1129 == 0 :
             save_path = manager.save()
             print("Saved checkpoint for step {}: {}".format(int(ckpt.step), save_path))
             print("loss {:1.2f}".format(train_loss.result()))     
@@ -142,12 +145,14 @@ for epoch in range(EPOCHS):
     label_valid_df = label_valid_df.sample(frac=1).reset_index(drop=True)
     start = time.time()
     for index in range(VALID_SIZE):
-        axial = np.load(VALID_IMAGE_DIR + "axial" + "\\"+str(label_valid_df.iloc[index][0] + 1130).zfill(4)+".npy") 
-        # coronal = np.load(VALID_IMAGE_DIR + "coronal" + "\\"+str(label_valid_df.iloc[index][0] + 1130).zfill(4)+".npy") 
-        # sagittal = np.load(VALID_IMAGE_DIR + "sagittal" + "\\"+str(label_valid_df.iloc[index][0] + 1130).zfill(4)+".npy") 
+        axial = np.load(VALID_IMAGE_DIR + "axial" + "/"+str(label_valid_df.iloc[index][0] + 1130).zfill(4)+".npy")
+        axial = np.stack((axial,)*3 , axis=1) 
+        coronal = np.load(VALID_IMAGE_DIR + "coronal" + "/"+str(label_valid_df.iloc[index][0] + 1130).zfill(4)+".npy")
+        coronal = np.stack((coronal,)*3 , axis=1) 
+        sagittal = np.load(VALID_IMAGE_DIR + "sagittal" + "/"+str(label_valid_df.iloc[index][0] + 1130).zfill(4)+".npy")
+        sagittal = np.stack((sagittal,)*3 , axis=1) 
         label = tf.convert_to_tensor(np.asarray(label_valid.iloc[index]).astype('float32').reshape(1,1), dtype=tf.float32)
-        # x = [axial , coronal , sagittal]                
-        x = [axial]
+        x = [axial , coronal , sagittal]                
         predictions = model(x)
         t_loss = loss_object(label , predictions)
         predictions = tf.math.sigmoid(predictions)
@@ -180,6 +185,6 @@ for epoch in range(EPOCHS):
     valid_AUC.reset_states()    
     valid_accuracy.reset_states()    
     valid_loss.reset_states()
-    end = time.time()  
+    end = time.time()     
     with test_summary_writer.as_default():
-        tf.summary.scalar('time', end - start, step=epoch)  
+        tf.summary.scalar("time",end-start,step=epoch)

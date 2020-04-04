@@ -24,7 +24,7 @@ class Alexnet(Model):
         self.flatten =  Flatten()
         self.dense_1 = Dense(1024)   
         self.dense_2 = Dense(1024)  
-        self.dense_3 = Dense(1 ,activation="sigmoid")
+        self.dense_3 = Dense(1)
     
     def extract(self , slices):
         slices = self.conv1(slices)   
@@ -38,34 +38,35 @@ class Alexnet(Model):
         slices = self.conv5(slices)
         slices = self.pooling3(slices) 
         slices = self.dropout1(slices)
-        slices = self.gloavg(slices)
         return slices
     
-    def call(self,x):     
-        feature_extract = None     
-        for data in x:                     
+    def call(self,x):                     
+        ans = None
+        for data in x:    
+            feature_extract = None                 
             for idx in range(data.shape[0]):                                        
-                extract = self.extract(tf.dtypes.cast(tf.reshape(data[idx] , [1, 256,256,1]),tf.float32))
+                extract = self.extract(tf.dtypes.cast(tf.reshape(data[idx] , [1, 256,256,3]),tf.float32))
+                
                 if feature_extract is None:
                     feature_extract = extract
                 else:
                     feature_extract = tf.concat([feature_extract , extract] , 0)
-            feature_extract = tf.math.reduce_max(feature_extract , 0 , keepdims=True)    
-        print(feature_extract.shape)
-        x = self.flatten(feature_extract)
-        print(x.shape)
-        x = self.dense_1(x)
-        print(x.shape)
-        x = self.dense_2(x)
-        print(x.shape)
+            feature_extract = self.gloavg(feature_extract)         
+            if ans is None:
+                ans = feature_extract
+            else:
+                ans = tf.concat([ans , feature_extract] , 0)
+        ans = tf.math.reduce_max(ans , 0 , keepdims=True)     
+        x = self.flatten(ans)    
+        x = self.dense_1(x)        
+        x = self.dense_2(x)        
         return self.dense_3(x)    
     
 
 class Smallnet(Model):
     def __init__(self):
-        super(Smallnet , self).__init__()
-        
-        self.conv1 = Conv2D(filters=64 ,kernel_size=(2,2), activation="relu" , strides=(2,2), input_shape=(256,256,1)) 
+        super(Smallnet , self).__init__()        
+        self.conv1 = Conv2D(filters=64 ,kernel_size=(2,2), activation="relu" , strides=(2,2), input_shape=(256,256,3)) 
         self.pool1 = MaxPool2D(pool_size=(2,2),strides=(2,2)) 
         self.conv2 = Conv2D(filters=32,kernel_size=(2,2), activation="relu" , strides=(2,2))
         self.pool2 = MaxPool2D(pool_size=(2,2),strides=(2,2))
@@ -85,26 +86,77 @@ class Smallnet(Model):
         slices = self.conv3(slices)
         slices = self.pool3(slices)
         return slices
+    
+    def call(self,x):                     
+        ans = None
+        for data in x:    
+            feature_extract = None                 
+            for idx in range(data.shape[0]):                                        
+                extract = self.extract(tf.dtypes.cast(tf.reshape(data[idx] , [1, 256,256,3]),tf.float32))
+                
+                if feature_extract is None:
+                    feature_extract = extract
+                else:
+                    feature_extract = tf.concat([feature_extract , extract] , 0)
+            feature_extract = self.gloavg(feature_extract)         
+            if ans is None:
+                ans = feature_extract
+            else:
+                ans = tf.concat([ans , feature_extract] , 0)
+        ans = tf.math.reduce_max(ans , 0 , keepdims=True)     
+        x = self.flatten(ans)    
+        x = self.dense_1(x)        
+        x = self.dense_2(x)        
+        return self.dense_3(x)    
+           
+
+class Net(Model):
+    def __init__(self):
+        super(Net , self).__init__()
+        
+        self.conv1 = Conv2D(filters=32 ,kernel_size=(2,2), activation="relu" , strides=(2,2), input_shape=(256,256,3)) 
+        self.pool1 = MaxPool2D(pool_size=(2,2),strides=(2,2)) 
+        self.conv2 = Conv2D(filters=16,kernel_size=(2,2), activation="relu" , strides=(2,2))
+        self.pool2 = MaxPool2D(pool_size=(2,2),strides=(2,2))
+        self.conv3 = Conv2D(filters=16,kernel_size=(2,2), activation="relu" , strides=(2,2))
+        self.pool3 = MaxPool2D(pool_size=(2,2),strides=(2,2))       
+        self.gloavg = GlobalAveragePooling2D()        
+        self.flatten =  Flatten()
+        self.dense_1 = Dense(128) 
+        self.dense_2 = Dense(128)    
+        self.dense_3 = Dense(1)
+
+    def extract(self , slices):        
+        slices = self.conv1(slices)        
+        slices = self.pool1(slices)        
+        slices = self.conv2(slices)
+        slices = self.pool2(slices)
+        slices = self.conv3(slices)
+        slices = self.pool3(slices)
+        return slices
 
     def call(self,x):                     
         ans = None
         for data in x:    
             feature_extract = None                 
             for idx in range(data.shape[0]):                                        
-                extract = self.extract(tf.dtypes.cast(tf.reshape(data[idx] , [1, 256,256,1]),tf.float32))
+                extract = self.extract(tf.dtypes.cast(tf.reshape(data[idx] , [1, 256,256,3]),tf.float32))
+                
                 if feature_extract is None:
                     feature_extract = extract
                 else:
                     feature_extract = tf.concat([feature_extract , extract] , 0)
-            feature_extract = self.gloavg(feature_extract)
-            feature_extract = tf.math.reduce_max(feature_extract , 0 , keepdims=True)            
-        x = self.flatten(feature_extract)
-        print(x.shape)
-        x = self.dense_1(x)
-        print(x.shape)
-        x = self.dense_2(x)
-        print(x.shape)
+            feature_extract = self.gloavg(feature_extract)         
+            if ans is None:
+                ans = feature_extract
+            else:
+                ans = tf.concat([ans , feature_extract] , 0)
+        ans = tf.math.reduce_max(ans , 0 , keepdims=True)     
+        x = self.flatten(ans)    
+        x = self.dense_1(x)        
+        x = self.dense_2(x)        
         return self.dense_3(x)    
            
     
+
 
