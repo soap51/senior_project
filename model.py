@@ -51,16 +51,16 @@ class Alexnet(Model):
                     feature_extract = extract
                 else:
                     feature_extract = tf.concat([feature_extract , extract] , 0)
-            feature_extract = self.gloavg(feature_extract)         
             if ans is None:
                 ans = feature_extract
             else:
-                ans = tf.concat([ans , feature_extract] , 0)
-        ans = tf.math.reduce_max(ans , 0 , keepdims=True)     
+                ans = tf.concat([ans , feature_extract] , 0)        
+        ans = self.gloavg(ans)          
+        ans = tf.math.reduce_max(ans , 0 , keepdims=True)             
         x = self.flatten(ans)    
         x = self.dense_1(x)        
         x = self.dense_2(x)        
-        return self.dense_3(x)    
+        return self.dense_3(x)     
     
 
 class Smallnet(Model):
@@ -98,12 +98,12 @@ class Smallnet(Model):
                     feature_extract = extract
                 else:
                     feature_extract = tf.concat([feature_extract , extract] , 0)
-            feature_extract = self.gloavg(feature_extract)         
             if ans is None:
                 ans = feature_extract
             else:
-                ans = tf.concat([ans , feature_extract] , 0)
-        ans = tf.math.reduce_max(ans , 0 , keepdims=True)     
+                ans = tf.concat([ans , feature_extract] , 0)        
+        ans = self.gloavg(ans)          
+        ans = tf.math.reduce_max(ans , 0 , keepdims=True)             
         x = self.flatten(ans)    
         x = self.dense_1(x)        
         x = self.dense_2(x)        
@@ -146,12 +146,12 @@ class Net(Model):
                     feature_extract = extract
                 else:
                     feature_extract = tf.concat([feature_extract , extract] , 0)
-            feature_extract = self.gloavg(feature_extract)         
             if ans is None:
                 ans = feature_extract
             else:
-                ans = tf.concat([ans , feature_extract] , 0)
-        ans = tf.math.reduce_max(ans , 0 , keepdims=True)     
+                ans = tf.concat([ans , feature_extract] , 0)        
+        ans = self.gloavg(ans)          
+        ans = tf.math.reduce_max(ans , 0 , keepdims=True)             
         x = self.flatten(ans)    
         x = self.dense_1(x)        
         x = self.dense_2(x)        
